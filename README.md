@@ -61,6 +61,43 @@ python3 ld_eval_to_logs.py \
 {"source":"LaunchDarkly","event":"evaluation_result_summary","flagKey":"demo-flag","value":true,"project":"arif-test-project"}
 ```
 
+## Hook Execution Flow
+
+When `client.variation()` is called, **both hooks are triggered** in sequence:
+
+```
+client.variation() called
+    ↓
+1. before_evaluation hook executes
+   - Logs flag key, context, and default value
+   - Executes BEFORE LaunchDarkly evaluates the flag
+    ↓
+2. SDK evaluates flag
+   - Contacts LaunchDarkly to get the flag value
+    ↓
+3. after_evaluation hook executes
+   - Logs the actual result (value, variation index, reason)
+   - Executes AFTER LaunchDarkly returns the result
+    ↓
+client.variation() returns the flag value
+```
+
+### Hook Benefits
+
+- **Debugging**: See if the default value is being used vs. actual flag value
+- **Latency tracking**: Measure time between before/after timestamps
+- **Failure detection**: If after_evaluation never fires, LaunchDarkly might be down
+- **Audit trail**: Complete record of what was requested and what was received
+
+### Before vs After
+
+| Hook | Timing | Has Access To |
+|------|--------|---------------|
+| `before_evaluation` | Before SDK evaluates | flag key, context, default value |
+| `after_evaluation` | After SDK evaluates | flag key, context, **actual value**, variation index, reason |
+
+If LaunchDarkly is unreachable, `after_evaluation` will show the default value being used instead of the configured flag value.
+
 ## LaunchDarkly Setup
 
 1. Create a project in LaunchDarkly (e.g., `arif-test-project`)
