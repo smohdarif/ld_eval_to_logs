@@ -145,10 +145,15 @@ This matches the format used by LaunchDarkly's official integrations and allows 
 
 ## References
 
-This implementation is aligned with:
-- [LaunchDarkly Python SDK Hooks Documentation](https://launchdarkly-python-sdk.readthedocs.io/en/latest/api-main.html#ldclient.hook.Hook)
-- [LaunchDarkly Dynatrace Integration Template](https://github.com/launchdarkly/integration-framework/blob/main/integrations/dynatrace-v2/templates/flag.json.hbs)
+This implementation is aligned with official LaunchDarkly documentation:
+
+### Python SDK Documentation
+- [LDClient.add_hook() API Reference](https://launchdarkly-python-sdk.readthedocs.io/en/latest/api-main.html#ldclient.client.LDClient.add_hook)
+- [Hook Class API Reference](https://launchdarkly-python-sdk.readthedocs.io/en/latest/api-main.html#ldclient.hook.Hook)
 - [LaunchDarkly Hooks Feature Guide](https://launchdarkly.com/docs/sdk/features/hooks)
+
+### Integration Templates
+- [Dynatrace v2 Integration Flag Template](https://github.com/launchdarkly/integration-framework/blob/main/integrations/dynatrace-v2/templates/flag.json.hbs) - Official payload format for Dynatrace integration
 
 ## LaunchDarkly Setup
 
