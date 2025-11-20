@@ -158,10 +158,22 @@ The script generates canonical keys for tracking contexts consistently:
 - **Single non-user context**: `organization:org-123`
 - **Multi-kind context**: `organization:org-123:user:user-456` (sorted alphabetically)
 
+### Special Character Encoding
+
+Context keys containing special characters are automatically encoded to prevent parsing issues:
+
+- **Colon (`:`)** → `%3A`
+- **Percent (`%`)** → `%25`
+
+**Example:**
+- Original key: `user:123%test`
+- Encoded canonical key: `user%3A123%25test`
+
 This matches the format used by LaunchDarkly's official integrations and allows for:
 - Consistent tracking across evaluations
 - Easy correlation with LaunchDarkly analytics
 - Support for multi-kind contexts in Dynatrace dashboards
+- Safe handling of keys with delimiter characters
 
 ## References
 
