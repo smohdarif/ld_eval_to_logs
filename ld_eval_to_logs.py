@@ -24,10 +24,21 @@ def json_log(payload: dict):
     logger.info(json.dumps(payload, separators=(",", ":"), ensure_ascii=False))
 
 
+def encode_key(key: str) -> str:
+    """
+    Encode special characters in context keys to prevent breaking the canonical key format.
+    Encodes '%' and ':' characters as they're used as delimiters.
+    """
+    if '%' in key or ':' in key:
+        return key.replace('%', '%25').replace(':', '%3A')
+    return key
+
+
 def get_canonical_key(context) -> str:
     """
     Generate a canonical key for the context (for multi-kind contexts).
     Format: kind:key or kind1:key1:kind2:key2 for multi-contexts
+    Special characters in keys are encoded to prevent parsing issues.
     """
     try:
         if context.multiple:
@@ -36,13 +47,14 @@ def get_canonical_key(context) -> str:
             for kind in sorted(context.kinds()):
                 ctx = context.get(kind)
                 if ctx and hasattr(ctx, 'key'):
-                    parts.append(f"{kind}:{ctx.key}")
-            return ":".join(parts) if parts else context.key
+                    parts.append(f"{kind}:{encode_key(ctx.key)}")
+            return ":".join(parts) if parts else encode_key(context.key)
         else:
             # Single context
+            encoded_key = encode_key(context.key)
             if context.kind and context.kind != "user":
-                return f"{context.kind}:{context.key}"
-            return context.key
+                return f"{context.kind}:{encoded_key}"
+            return encoded_key
     except Exception:
         return str(context)
 
