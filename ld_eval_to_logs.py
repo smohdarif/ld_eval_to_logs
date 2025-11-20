@@ -24,6 +24,29 @@ def json_log(payload: dict):
     logger.info(json.dumps(payload, separators=(",", ":"), ensure_ascii=False))
 
 
+def get_canonical_key(context) -> str:
+    """
+    Generate a canonical key for the context (for multi-kind contexts).
+    Format: kind:key or kind1:key1:kind2:key2 for multi-contexts
+    """
+    try:
+        if context.multiple:
+            # Multi-kind context
+            parts = []
+            for kind in sorted(context.kinds()):
+                ctx = context.get(kind)
+                if ctx and hasattr(ctx, 'key'):
+                    parts.append(f"{kind}:{ctx.key}")
+            return ":".join(parts) if parts else context.key
+        else:
+            # Single context
+            if context.kind and context.kind != "user":
+                return f"{context.kind}:{context.key}"
+            return context.key
+    except Exception:
+        return str(context)
+
+
 # ---- Hook that logs after each flag evaluation
 class EvaluationLoggingHook(Hook):
     @property
@@ -35,16 +58,20 @@ class EvaluationLoggingHook(Hook):
         context = series_context.context
         flag_key = series_context.key
         default_value = series_context.default_value
+        method = series_context.method
+        
+        # Get canonical context key for tracking
+        canonical_key = get_canonical_key(context)
         
         # Try to keep context lightweight to avoid PII; include kind/key only
         try:
             # Context API: pull "kind" and "key" safely
             if context.multiple:
                 kinds = sorted([k for k in context.kinds()])
-                ctx_repr = {"kinds": kinds}
+                ctx_repr = {"kinds": kinds, "canonicalKey": canonical_key}
             else:
                 kinds = [context.kind]
-                ctx_repr = {"kinds": kinds}
+                ctx_repr = {"kinds": kinds, "canonicalKey": canonical_key}
 
             # Try to include a stable key if present (avoid dumping all attributes)
             if not context.multiple and context.key is not None:
@@ -56,6 +83,7 @@ class EvaluationLoggingHook(Hook):
             "event": "before_flag_evaluation",
             "flagKey": flag_key,
             "defaultValue": default_value,
+            "method": method,
             "context": ctx_repr,
         }
         json_log(payload)
@@ -67,16 +95,20 @@ class EvaluationLoggingHook(Hook):
         # Extract context and flag key from series_context
         context = series_context.context
         flag_key = series_context.key
+        method = series_context.method
+        
+        # Get canonical context key for tracking
+        canonical_key = get_canonical_key(context)
         
         # Try to keep context lightweight to avoid PII; include kind/key only
         try:
             # Context API: pull "kind" and "key" safely
             if context.multiple:
                 kinds = sorted([k for k in context.kinds()])
-                ctx_repr = {"kinds": kinds}
+                ctx_repr = {"kinds": kinds, "canonicalKey": canonical_key}
             else:
                 kinds = [context.kind]
-                ctx_repr = {"kinds": kinds}
+                ctx_repr = {"kinds": kinds, "canonicalKey": canonical_key}
 
             # Try to include a stable key if present (avoid dumping all attributes)
             # NOTE: For multi-kind, there may be multiple keys; keep it minimal.
@@ -85,15 +117,32 @@ class EvaluationLoggingHook(Hook):
         except Exception:
             ctx_repr = {"repr": str(context)}
 
+        # Extract detailed reason information (matching Dynatrace template format)
         reason = getattr(detail, "reason", None)
-        reason_kind = getattr(reason, "kind", None)
-        reason_dict = {"kind": reason_kind} if reason_kind else None
+        reason_dict = None
+        if reason:
+            reason_dict = {
+                "kind": getattr(reason, "kind", None),
+            }
+            # Add optional reason fields if present
+            if hasattr(reason, "rule_id") and reason.rule_id is not None:
+                reason_dict["ruleId"] = reason.rule_id
+            if hasattr(reason, "rule_index") and reason.rule_index is not None:
+                reason_dict["ruleIndex"] = reason.rule_index
+            if hasattr(reason, "in_experiment") and reason.in_experiment is not None:
+                reason_dict["inExperiment"] = reason.in_experiment
+            if hasattr(reason, "error_kind") and reason.error_kind is not None:
+                reason_dict["errorKind"] = reason.error_kind
+            if hasattr(reason, "prerequisite_key") and reason.prerequisite_key is not None:
+                reason_dict["prerequisiteKey"] = reason.prerequisite_key
 
         payload = {
             "event": "after_flag_evaluation",
             "flagKey": flag_key,
             "value": getattr(detail, "value", None),
             "variationIndex": getattr(detail, "variation_index", None),
+            "defaultValue": series_context.default_value,
+            "method": method,
             "reason": reason_dict,
             "context": ctx_repr,
         }
