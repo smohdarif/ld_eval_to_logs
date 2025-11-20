@@ -59,11 +59,31 @@ python3 ld_eval_to_logs.py \
 
 ## Example Output
 
+Real output from running the script:
+
 ```json
-{"event":"before_flag_evaluation","flagKey":"demo-flag","defaultValue":false,"method":"variation","context":{"kinds":["user"],"canonicalKey":"demo-user-1","key":"demo-user-1"},"timestamp":1763662672142,"source":"LaunchDarkly"}
-{"event":"after_flag_evaluation","flagKey":"demo-flag","value":true,"variationIndex":0,"defaultValue":false,"method":"variation","reason":{"kind":"FALLTHROUGH","ruleId":"rule-123","inExperiment":true},"context":{"kinds":["user"],"canonicalKey":"demo-user-1","key":"demo-user-1"},"timestamp":1763662672142,"source":"LaunchDarkly"}
+{"event":"before_flag_evaluation","flagKey":"demo-flag","defaultValue":false,"method":"variation","context":{"kinds":["user"],"canonicalKey":"demo-user-1","key":"demo-user-1"},"timestamp":1763670574151,"source":"LaunchDarkly"}
+{"event":"after_flag_evaluation","flagKey":"demo-flag","value":true,"variationIndex":0,"defaultValue":false,"method":"variation","reason":{"kind":null},"context":{"kinds":["user"],"canonicalKey":"demo-user-1","key":"demo-user-1"},"timestamp":1763670574151,"source":"LaunchDarkly"}
 {"source":"LaunchDarkly","event":"evaluation_result_summary","flagKey":"demo-flag","value":true,"project":"arif-test-project"}
 ```
+
+### Output Breakdown
+
+**Line 1 - Before Evaluation:**
+- Shows the flag about to be evaluated (`demo-flag`)
+- Includes the default fallback value (`false`)
+- Records the SDK method being called (`variation`)
+- Captures context with canonical key for tracking
+
+**Line 2 - After Evaluation:**
+- Shows the actual value returned (`true`)
+- Variation index `0` indicates which variant was served
+- Reason object ready to capture rule matches, experiments, and errors
+- Same canonical key for correlation with before event
+
+**Line 3 - Summary:**
+- Human-readable summary of the evaluation
+- Includes project tag for organizational filtering
 
 ### Payload Fields
 
