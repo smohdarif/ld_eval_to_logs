@@ -171,12 +171,33 @@ def main():
     parser.add_argument("--user-key", default="demo-user-1", help="Context key (default: demo-user-1).")
     parser.add_argument("--default", default="false", choices=["true", "false"],
                         help="Default value if flag not found (bool). Default: false.")
+    parser.add_argument("--simulate-down", action="store_true",
+                        help="Simulate LaunchDarkly being down (uses invalid endpoints for testing).")
     args = parser.parse_args()
 
     default_value = True if args.default.lower() == "true" else False
 
     # ---- LD client config (streaming on; events enabled by default)
-    config = Config(sdk_key=args.sdk_key, stream=True, offline=False, hooks=[EvaluationLoggingHook()])
+    if args.simulate_down:
+        # Use invalid endpoints to simulate LD being down
+        config = Config(
+            sdk_key=args.sdk_key,
+            stream=True,
+            offline=False,
+            stream_uri="https://invalid-ld-endpoint.example.com",
+            base_uri="https://invalid-ld-endpoint.example.com",
+            events_uri="https://invalid-ld-endpoint.example.com",
+            hooks=[EvaluationLoggingHook()],
+            initial_reconnect_delay=0.1  # Fail fast for testing
+        )
+        logger.info(json.dumps({
+            "source": "LaunchDarkly",
+            "event": "simulation_mode",
+            "message": "Simulating LaunchDarkly down - using invalid endpoints"
+        }, separators=(",", ":")))
+    else:
+        config = Config(sdk_key=args.sdk_key, stream=True, offline=False, hooks=[EvaluationLoggingHook()])
+    
     client = LDClient(config)
 
     try:
