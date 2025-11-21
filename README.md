@@ -56,6 +56,7 @@ python3 ld_eval_to_logs.py \
 - `--flag-key` (required): Feature flag key to evaluate
 - `--user-key` (optional): Context key (default: demo-user-1)
 - `--default` (optional): Default value if flag not found (true/false, default: false)
+- `--simulate-down` (optional): Simulate LaunchDarkly being down for testing failure scenarios
 
 ## Example Output
 
@@ -193,6 +194,58 @@ This implementation is aligned with official LaunchDarkly documentation:
 2. Create an environment and get the server-side SDK key
 3. Create a boolean feature flag (e.g., `demo-flag`)
 4. Turn the flag ON and configure variations
+
+## Testing Failure Scenarios
+
+The `--simulate-down` flag allows you to test how your application behaves when LaunchDarkly is unreachable:
+
+```bash
+python3 ld_eval_to_logs.py \
+  --sdk-key "YOUR_SDK_KEY" \
+  --project "YOUR_PROJECT" \
+  --flag-key "YOUR_FLAG" \
+  --simulate-down
+```
+
+### When LaunchDarkly is Down:
+
+**What happens:**
+- SDK cannot connect to LaunchDarkly endpoints
+- Default/fallback values are used
+- `variationIndex` becomes `null` (key indicator!)
+- Hooks still fire and log the evaluation
+
+**Example output:**
+```json
+{
+  "event": "after_flag_evaluation",
+  "flagKey": "demo-flag",
+  "value": false,             // ← Default value used
+  "variationIndex": null,     // ← NULL = LD unreachable!
+  "defaultValue": false,
+  "method": "variation"
+}
+```
+
+### Dynatrace Monitoring
+
+Use `variationIndex: null` to create alerts:
+
+```sql
+-- Alert when LaunchDarkly is unreachable
+SELECT count(*) 
+FROM logs 
+WHERE variationIndex IS NULL 
+AND event = 'after_flag_evaluation'
+```
+
+```sql
+-- Calculate LaunchDarkly availability
+SELECT 
+  (COUNT(*) FILTER (WHERE variationIndex IS NOT NULL) * 100.0 / COUNT(*)) as availability_percentage
+FROM logs 
+WHERE event = 'after_flag_evaluation'
+```
 
 ## Integration with Dynatrace
 
