@@ -63,26 +63,32 @@ python3 ld_eval_to_logs.py \
 Real output from running the script:
 
 ```json
-{"event":"before_flag_evaluation","flagKey":"demo-flag","defaultValue":false,"method":"variation","context":{"kinds":["user"],"canonicalKey":"demo-user-1","key":"demo-user-1"},"timestamp":1763670574151,"source":"LaunchDarkly"}
-{"event":"after_flag_evaluation","flagKey":"demo-flag","value":true,"variationIndex":0,"defaultValue":false,"method":"variation","reason":{"kind":null},"context":{"kinds":["user"],"canonicalKey":"demo-user-1","key":"demo-user-1"},"timestamp":1763670574151,"source":"LaunchDarkly"}
+{"source":"LaunchDarkly","event":"data_source_status","state":"VALID","stateSince":1763769426271}
+{"event":"before_flag_evaluation","flagKey":"demo-flag","defaultValue":false,"method":"variation","context":{"kinds":["user"],"canonicalKey":"test-user","key":"test-user"},"timestamp":1763769426272,"source":"LaunchDarkly"}
+{"event":"after_flag_evaluation","flagKey":"demo-flag","value":true,"variationIndex":0,"defaultValue":false,"method":"variation","reason":{"kind":null},"context":{"kinds":["user"],"canonicalKey":"test-user","key":"test-user"},"timestamp":1763769426272,"source":"LaunchDarkly"}
 {"source":"LaunchDarkly","event":"evaluation_result_summary","flagKey":"demo-flag","value":true,"project":"arif-test-project"}
 ```
 
 ### Output Breakdown
 
-**Line 1 - Before Evaluation:**
+**Line 1 - Data Source Status:**
+- Shows SDK connection state to LaunchDarkly (`VALID`, `INITIALIZING`, etc.)
+- Timestamp when state last changed
+- Includes error details if connection failed
+
+**Line 2 - Before Evaluation:**
 - Shows the flag about to be evaluated (`demo-flag`)
 - Includes the default fallback value (`false`)
 - Records the SDK method being called (`variation`)
 - Captures context with canonical key for tracking
 
-**Line 2 - After Evaluation:**
+**Line 3 - After Evaluation:**
 - Shows the actual value returned (`true`)
 - Variation index `0` indicates which variant was served
 - Reason object ready to capture rule matches, experiments, and errors
 - Same canonical key for correlation with before event
 
-**Line 3 - Summary:**
+**Line 4 - Summary:**
 - Human-readable summary of the evaluation
 - Includes project tag for organizational filtering
 
@@ -227,9 +233,56 @@ python3 ld_eval_to_logs.py \
 }
 ```
 
+## Data Source Status Monitoring
+
+The script monitors the SDK's connection to LaunchDarkly using the [official monitoring API](https://launchdarkly.com/docs/sdk/features/monitoring#expand-python-code-sample).
+
+### Connection States
+
+| State | Meaning |
+|-------|---------|
+| `VALID` | ✅ SDK is connected and receiving flag data |
+| `INITIALIZING` | 🔄 SDK is attempting to establish connection |
+| `INTERRUPTED` | ⚠️ Connection was lost, SDK will retry |
+| `OFF` | ⭕ SDK is offline (explicitly or no network) |
+
+### When Connection Fails
+
+When LaunchDarkly is unreachable, the `data_source_status` event includes error details:
+
+```json
+{
+  "source": "LaunchDarkly",
+  "event": "data_source_status",
+  "state": "INITIALIZING",
+  "stateSince": 1763769436703,
+  "lastError": {
+    "kind": "UNKNOWN",
+    "statusCode": 0,
+    "time": 1763769438962
+  }
+}
+```
+
 ### Dynatrace Monitoring
 
-Use `variationIndex: null` to create alerts:
+**Alert on SDK Connection Issues:**
+```sql
+SELECT * 
+FROM logs 
+WHERE event = 'data_source_status' 
+AND state != 'VALID'
+```
+
+**Track SDK Availability:**
+```sql
+SELECT 
+  (COUNT(*) FILTER (WHERE state = 'VALID') * 100.0 / COUNT(*)) as sdk_availability_percentage
+FROM logs 
+WHERE event = 'data_source_status'
+```
+
+Use `variationIndex: null` to detect flag evaluation failures:
 
 ```sql
 -- Alert when LaunchDarkly is unreachable
