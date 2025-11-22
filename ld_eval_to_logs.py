@@ -201,6 +201,27 @@ def main():
     client = LDClient(config)
 
     try:
+        # ---- Check data source status (connection to LaunchDarkly)
+        data_source_status = client.data_source_status_provider.status
+        
+        status_payload = {
+            "source": "LaunchDarkly",
+            "event": "data_source_status",
+            "state": str(data_source_status.state.name) if hasattr(data_source_status.state, 'name') else str(data_source_status.state),
+            "stateSince": int(data_source_status.since * 1000) if data_source_status.since else None,  # Convert to milliseconds
+        }
+        
+        # Include error if present
+        if data_source_status.error:
+            error_info = data_source_status.error
+            status_payload["lastError"] = {
+                "kind": str(error_info.kind.name) if hasattr(error_info.kind, 'name') else str(error_info.kind),
+                "statusCode": error_info.status_code if hasattr(error_info, 'status_code') else None,
+                "time": int(error_info.time * 1000) if hasattr(error_info, 'time') and error_info.time else None,
+            }
+        
+        logger.info(json.dumps(status_payload, separators=(",", ":")))
+        
         # ---- Minimal, privacy-safe context; attach project as an attribute
         ctx_builder = Context.builder(args.user_key)  # ✅ best practice: builder API
         ctx_builder.set("project", args.project)      # tag for dashboards/search
